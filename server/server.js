@@ -3,11 +3,12 @@ const cors = require("cors");
 require("dotenv").config();
 
 const connectDB = require("./config/db");
-
+const requestRoutes = require("./routes/requestRoutes");
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use("/api/requests", requestRoutes);
 
 app.get("/", (req, res) => {
     res.send("Home Maintenance API is running!");

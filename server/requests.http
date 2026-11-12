@@ -1,0 +1,11 @@
+### Create Maintenance Request
+POST http://localhost:5000/api/requests
+Content-Type: application/json
+
+{
+    "customerName": "Rahul",
+    "contactNumber": "9876543210",
+    "serviceType": "Plumbing",
+    "description": "Kitchen tap leakage",
+    "preferredDate": "2026-11-15"
+}
