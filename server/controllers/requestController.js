@@ -63,6 +63,62 @@ const createRequest = async (req, res) => {
     }
 };
 
+// Get all maintenance requests
+const getAllRequests = async (req, res) => {
+    try {
+        const requests = await MaintenanceRequest.find()
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            count: requests.length,
+            data: requests
+        });
+
+    } catch (error) {
+        console.error("Get All Requests Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch maintenance requests."
+        });
+    }
+};
+
+
+// Get a single request by request ID
+const getRequestById = async (req, res) => {
+    try {
+        const { requestId } = req.params;
+
+        const request = await MaintenanceRequest.findOne({
+            requestId: requestId
+        });
+
+        if (!request) {
+            return res.status(404).json({
+                success: false,
+                message: "Maintenance request not found."
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: request
+        });
+
+    } catch (error) {
+        console.error("Get Request By ID Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch maintenance request."
+        });
+    }
+};
+
 module.exports = {
-    createRequest
+    createRequest,
+    getAllRequests,
+    getRequestById
 };
