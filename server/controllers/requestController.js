@@ -182,9 +182,43 @@ const updateRequest = async (req, res) => {
     }
 };
 
+
+const deleteRequest = async (req, res) => {
+    try {
+        const { requestId } = req.params;
+
+        // Find and delete the request
+        const deletedRequest = await MaintenanceRequest.findOneAndDelete({
+            requestId: requestId
+        });
+
+        if (!deletedRequest) {
+            return res.status(404).json({
+                success: false,
+                message: "Maintenance request not found."
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Maintenance request deleted successfully.",
+            data: deletedRequest
+        });
+
+    } catch (error) {
+        console.error("Delete Request Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to delete maintenance request."
+        });
+    }
+};
+
 module.exports = {
     createRequest,
     getAllRequests,
     getRequestById,
-    updateRequest
+    updateRequest,
+     deleteRequest
 };
