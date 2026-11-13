@@ -64,10 +64,186 @@ const createRequest = async (req, res) => {
 };
 
 // Get all maintenance requests
+
 const getAllRequests = async (req, res) => {
     try {
-        const requests = await MaintenanceRequest.find()
-            .sort({ createdAt: -1 });
+        const {
+            search,
+            serviceType,
+            status,
+            startDate,
+            endDate,
+            minCost,
+            maxCost,
+            sortBy,
+            order
+        } = req.query;
+
+        // Build database query conditions
+        const conditions = [];
+
+        // Search by request ID or customer name
+        if (search) {
+            const escapedSearch = search.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
+
+            conditions.push({
+                $or: [
+                    {
+                        requestId: {
+                            $regex: escapedSearch,
+                            $options: "i"
+                        }
+                    },
+                    {
+                        customerName: {
+                            $regex: escapedSearch,
+                            $options: "i"
+                        }
+                    }
+                ]
+            });
+        }
+
+        // Filter by one or multiple service types
+        if (serviceType) {
+            const services = serviceType.split(",");
+
+            conditions.push({
+                serviceType: {
+                    $in: services
+                }
+            });
+        }
+
+        // Filter by one or multiple statuses
+        if (status) {
+            const statuses = status.split(",");
+
+            conditions.push({
+                status: {
+                    $in: statuses
+                }
+            });
+        }
+
+        // Filter by request date range
+        if (startDate || endDate) {
+            const dateFilter = {};
+
+            if (startDate) {
+                const start = new Date(startDate);
+
+                if (isNaN(start.getTime())) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Invalid start date."
+                    });
+                }
+
+                dateFilter.$gte = start;
+            }
+
+            if (endDate) {
+                const end = new Date(endDate);
+
+                if (isNaN(end.getTime())) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Invalid end date."
+                    });
+                }
+
+                end.setUTCHours(23, 59, 59, 999);
+                dateFilter.$lte = end;
+            }
+            // Check whether start date is after end date
+if (
+    startDate &&
+    endDate &&
+    new Date(startDate) > new Date(endDate)
+) {
+    return res.status(400).json({
+        success: false,
+        message: "Start date cannot be after end date."
+    });
+}
+
+            conditions.push({
+                requestDate: dateFilter
+            });
+        }
+
+        // Filter by estimated cost
+        if (minCost !== undefined || maxCost !== undefined) {
+            const costFilter = {};
+
+            if (minCost !== undefined) {
+                const min = Number(minCost);
+
+                if (!Number.isFinite(min) || min < 0) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Invalid minimum cost."
+                    });
+                }
+
+                costFilter.$gte = min;
+            }
+
+            if (maxCost !== undefined) {
+                const max = Number(maxCost);
+
+                if (!Number.isFinite(max) || max < 0) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Invalid maximum cost."
+                    });
+                }
+
+                costFilter.$lte = max;
+            }
+
+            // Check whether minimum cost exceeds maximum cost
+if (
+    minCost !== undefined &&
+    maxCost !== undefined &&
+    Number(minCost) > Number(maxCost)
+) {
+    return res.status(400).json({
+        success: false,
+        message: "Minimum cost cannot exceed maximum cost."
+    });
+}
+
+            conditions.push({
+                estimatedCost: costFilter
+            });
+        }
+
+        // Combine all supplied filters
+        const query = conditions.length > 0
+            ? { $and: conditions }
+            : {};
+
+        // Allow only supported sorting fields
+        const allowedSortFields = [
+            "createdAt",
+            "requestDate",
+            "estimatedCost"
+        ];
+
+        const selectedSortField = allowedSortFields.includes(sortBy)
+            ? sortBy
+            : "createdAt";
+
+        const sortOrder = order === "asc" ? 1 : -1;
+
+        // Fetch matching requests
+        const requests = await MaintenanceRequest.find(query)
+            .sort({ [selectedSortField]: sortOrder });
 
         return res.status(200).json({
             success: true,
@@ -84,6 +260,7 @@ const getAllRequests = async (req, res) => {
         });
     }
 };
+
 
 
 // Get a single request by request ID
