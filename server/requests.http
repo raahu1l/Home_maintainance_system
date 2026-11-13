@@ -9,3 +9,10 @@ Content-Type: application/json
     "description": "Kitchen tap leakage",
     "preferredDate": "2026-11-15"
 }
+
+### Get All Maintenance Requests
+GET http://localhost:5000/api/requests
+
+
+### Get Request by ID
+GET http://localhost:5000/api/requests/MR002

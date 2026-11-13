@@ -117,8 +117,74 @@ const getRequestById = async (req, res) => {
     }
 };
 
+
+const updateRequest = async (req, res) => {
+    try {
+        const { requestId } = req.params;
+
+        const {
+            technician,
+            estimatedCost,
+            status,
+            note
+        } = req.body;
+
+        // Find existing request
+        const request = await MaintenanceRequest.findOne({
+            requestId: requestId
+        });
+
+        if (!request) {
+            return res.status(404).json({
+                success: false,
+                message: "Maintenance request not found."
+            });
+        }
+
+        // Update technician if provided
+        if (technician !== undefined) {
+            request.technician = technician || null;
+        }
+
+        // Update estimated cost if provided
+        if (estimatedCost !== undefined) {
+            request.estimatedCost = estimatedCost;
+        }
+
+        // Update status if provided
+        if (status !== undefined && status !== request.status) {
+            request.status = status;
+
+            // Add status change to history
+            request.statusHistory.push({
+                status: status,
+                note: note || "Status updated"
+            });
+        }
+
+        // Save changes to MongoDB
+        const updatedRequest = await request.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Maintenance request updated successfully.",
+            data: updatedRequest
+        });
+
+    } catch (error) {
+        console.error("Update Request Error:", error);
+
+        return res.status(400).json({
+            success: false,
+            message: "Failed to update maintenance request.",
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     createRequest,
     getAllRequests,
-    getRequestById
+    getRequestById,
+    updateRequest
 };
