@@ -6,7 +6,8 @@ const {
     getAllRequests,
     getRequestById,
     updateRequest,
-    deleteRequest
+    deleteRequest,
+    getRequestStats
 } = require("../controllers/requestController");
 
 // Create a request
@@ -14,6 +15,9 @@ router.post("/", createRequest);
 
 // Get all requests
 router.get("/", getAllRequests);
+
+
+router.get("/stats", getRequestStats);
 
 // Get request by ID
 router.get("/:requestId", getRequestById);
@@ -24,5 +28,6 @@ router.put("/:requestId", updateRequest);
 
 // Delete request
 router.delete("/:requestId", deleteRequest);
+
 
 module.exports = router;

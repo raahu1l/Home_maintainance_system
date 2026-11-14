@@ -392,10 +392,52 @@ const deleteRequest = async (req, res) => {
     }
 };
 
+const getRequestStats = async (req, res) => {
+    try {
+        // Total number of requests
+        const totalRequests = await MaintenanceRequest.countDocuments();
+
+        // Count requests grouped by status
+        const statusStats = await MaintenanceRequest.aggregate([
+            {
+                $group: {
+                    _id: "$status",
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        // Count requests grouped by service type
+        const serviceStats = await MaintenanceRequest.aggregate([
+            {
+                $group: {
+                    _id: "$serviceType",
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        res.status(200).json({
+            success: true,
+            totalRequests,
+            statusStats,
+            serviceStats
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch dashboard statistics",
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     createRequest,
     getAllRequests,
     getRequestById,
     updateRequest,
-     deleteRequest
+     deleteRequest,
+     getRequestStats
 };
