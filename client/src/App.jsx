@@ -3,6 +3,7 @@ import Navbar from "./components/Navbar";
 import "./App.css";
 import RequestForm from "./components/RequestForm";
 import RequestTracker from "./components/RequestTracker";
+import ManagerDashboard from "./components/ManagerDashboard";
 
 function App() {
     const [activeView, setActiveView] = useState("member");
@@ -16,13 +17,15 @@ function App() {
             />
 
             <main className="main-content">
-                {activeView === "member" ? (
-                   <> <RequestForm/>
-                    <RequestTracker /> </>
-                ) : (
-                    <h1>Manager Dashboard</h1>
-                )}
-            </main>
+    {activeView === "member" ? (
+        <>
+            <RequestForm />
+            <RequestTracker />
+        </>
+    ) : (
+        <ManagerDashboard />
+    )}
+</main>
         </div>
     );
 }

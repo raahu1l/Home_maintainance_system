@@ -33,3 +33,37 @@ export const getRequestById = async (requestId) => {
 
     return data;
 };
+
+export const getRequestStats = async () => {
+    const response = await fetch(`${API_URL}/stats`);
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.message || "Failed to fetch statistics");
+    }
+
+    return data;
+};
+
+export const getAllRequests = async (filters = {}) => {
+    const queryParams = new URLSearchParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+        if (value !== "" && value !== null && value !== undefined) {
+            queryParams.append(key, value);
+        }
+    });
+
+    const response = await fetch(
+        `${API_URL}?${queryParams.toString()}`
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.message || "Failed to fetch requests");
+    }
+
+    return data;
+};
