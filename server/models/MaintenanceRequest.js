@@ -25,7 +25,7 @@ const maintenanceRequestSchema = new mongoose.Schema(
         serviceType: {
             type: String,
             required: true,
-            enum: ["Plumbing", "Electrical", "Cleaning", "Carpentry","Painting","Other"]
+            enum: ["Plumbing", "Electrical", "Cleaning", "Carpentry", "Painting", "Other"]
         },
 
         description: {
@@ -62,6 +62,14 @@ const maintenanceRequestSchema = new mongoose.Schema(
             default: "Pending"
         },
 
+        // Counts how many times a request has been updated
+        updateCount: {
+            type: Number,
+            default: 0,
+            min: 0
+        },
+
+        // Stores the history of status changes
         statusHistory: [
             {
                 status: {

@@ -1,3 +1,4 @@
+
 const API_URL = "http://localhost:5000/api/requests";
 
 // Create a new maintenance request
@@ -19,6 +20,7 @@ export const createRequest = async (requestData) => {
     return data;
 };
 
+
 // Get a maintenance request by Request ID
 export const getRequestById = async (requestId) => {
     const response = await fetch(
@@ -34,6 +36,8 @@ export const getRequestById = async (requestId) => {
     return data;
 };
 
+
+// Get dashboard statistics
 export const getRequestStats = async () => {
     const response = await fetch(`${API_URL}/stats`);
 
@@ -46,6 +50,8 @@ export const getRequestStats = async () => {
     return data;
 };
 
+
+// Get all requests with search, filters, sorting, projection and limit
 export const getAllRequests = async (filters = {}) => {
     const queryParams = new URLSearchParams();
 
@@ -55,8 +61,10 @@ export const getAllRequests = async (filters = {}) => {
         }
     });
 
+    const queryString = queryParams.toString();
+
     const response = await fetch(
-        `${API_URL}?${queryParams.toString()}`
+        queryString ? `${API_URL}?${queryString}` : API_URL
     );
 
     const data = await response.json();
@@ -68,6 +76,8 @@ export const getAllRequests = async (filters = {}) => {
     return data;
 };
 
+
+// Delete one request
 export const deleteRequest = async (requestId) => {
     const response = await fetch(
         `${API_URL}/${encodeURIComponent(requestId)}`,
@@ -85,6 +95,28 @@ export const deleteRequest = async (requestId) => {
     return data;
 };
 
+
+// Delete multiple requests
+export const deleteManyRequests = async (requestIds) => {
+    const response = await fetch(`${API_URL}/bulk`, {
+        method: "DELETE",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ requestIds })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.message || "Failed to delete requests");
+    }
+
+    return data;
+};
+
+
+// Update a request
 export const updateRequest = async (requestId, updateData) => {
     const response = await fetch(
         `${API_URL}/${encodeURIComponent(requestId)}`,

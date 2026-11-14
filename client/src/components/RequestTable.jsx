@@ -1,8 +1,10 @@
 
 import { useEffect, useState } from "react";
+
 import {
     getAllRequests,
     deleteRequest,
+    deleteManyRequests,
     updateRequest
 } from "../services/requestService";
 
@@ -15,6 +17,7 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
     const [selectedRequestId, setSelectedRequestId] = useState("");
 
     const [assignments, setAssignments] = useState({});
+    const [selectedIds, setSelectedIds] = useState([]);
 
     const [filters, setFilters] = useState({
         serviceType: "",
@@ -23,6 +26,11 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
         endDate: "",
         minCost: "",
         maxCost: "",
+        aboveCost: "",
+        belowCost: "",
+        excludeStatus: "",
+        historyStatus: "",
+        limit: "",
         sortBy: "createdAt",
         order: "desc"
     });
@@ -30,8 +38,30 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    // Fetch requests with search and filters
-    const fetchRequests = async (searchValue = "", filterValues = filters) => {
+    // Fields required by the table and request details popup.
+    // This also demonstrates MongoDB projection.
+    const projectionFields = [
+        "requestId",
+        "customerName",
+        "contactNumber",
+        "serviceType",
+        "description",
+        "requestDate",
+        "preferredDate",
+        "estimatedCost",
+        "technician",
+        "status",
+        "statusHistory",
+        "updateCount",
+        "createdAt",
+        "updatedAt"
+    ].join(",");
+
+    // Fetch requests using all selected filters
+    const fetchRequests = async (
+        searchValue = "",
+        filterValues = filters
+    ) => {
         try {
             setLoading(true);
             setError("");
@@ -39,12 +69,14 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
             const data = await getAllRequests({
                 search: searchValue,
                 ...filterValues,
+                fields: projectionFields,
                 ...(pendingOnly && { status: "Pending" })
             });
 
-            setRequests(data.data);
+            setRequests(data.data || []);
         } catch (error) {
             setError(error.message);
+            setRequests([]);
         } finally {
             setLoading(false);
         }
@@ -54,6 +86,7 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
         fetchRequests();
     }, [pendingOnly]);
 
+    // Search requests
     const handleSearch = (e) => {
         e.preventDefault();
         fetchRequests(search.trim(), filters);
@@ -61,22 +94,26 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
 
     const handleClear = () => {
         setSearch("");
-        fetchRequests();
+        fetchRequests("", filters);
     };
 
+    // Update filter values
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
 
-        setFilters({
-            ...filters,
+        setFilters(previous => ({
+            ...previous,
             [name]: value
-        });
+        }));
     };
 
+    // Apply all filters together
     const handleApplyFilters = () => {
+        setSelectedIds([]);
         fetchRequests(search.trim(), filters);
     };
 
+    // Reset all filters
     const handleResetFilters = () => {
         const defaultFilters = {
             serviceType: "",
@@ -85,16 +122,23 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
             endDate: "",
             minCost: "",
             maxCost: "",
+            aboveCost: "",
+            belowCost: "",
+            excludeStatus: "",
+            historyStatus: "",
+            limit: "",
             sortBy: "createdAt",
             order: "desc"
         };
 
         setFilters(defaultFilters);
         setSearch("");
+        setSelectedIds([]);
+
         fetchRequests("", defaultFilters);
     };
 
-    // Delete request functionality
+    // Delete one request
     const handleDeleteClick = (requestId) => {
         setSelectedRequestId(requestId);
         setShowDeleteModal(true);
@@ -107,8 +151,13 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
             setShowDeleteModal(false);
             setSelectedRequestId("");
 
+            setSelectedIds(previous =>
+                previous.filter(id => id !== selectedRequestId)
+            );
+
             await fetchRequests(search.trim(), filters);
             await onDataChange?.();
+
         } catch (error) {
             alert(error.message);
         }
@@ -119,9 +168,52 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
         setSelectedRequestId("");
     };
 
+    // Select or deselect one request
+    const handleSelectRequest = (requestId) => {
+        setSelectedIds(previous =>
+            previous.includes(requestId)
+                ? previous.filter(id => id !== requestId)
+                : [...previous, requestId]
+        );
+    };
+
+    // Select or deselect all visible requests
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedIds(requests.map(request => request.requestId));
+        } else {
+            setSelectedIds([]);
+        }
+    };
+
+    // Delete multiple selected requests
+    const handleBulkDelete = async () => {
+        if (selectedIds.length === 0) return;
+
+        const confirmed = window.confirm(
+            `Are you sure you want to delete ${selectedIds.length} selected request(s)? This action cannot be undone.`
+        );
+
+        if (!confirmed) return;
+
+        try {
+            const result = await deleteManyRequests(selectedIds);
+
+            alert(result.message);
+
+            setSelectedIds([]);
+
+            await fetchRequests(search.trim(), filters);
+            await onDataChange?.();
+
+        } catch (error) {
+            alert(error.message);
+        }
+    };
+
     // Handle assignment input changes
     const handleAssignmentChange = (requestId, field, value) => {
-        setAssignments((previous) => ({
+        setAssignments(previous => ({
             ...previous,
             [requestId]: {
                 ...previous[requestId],
@@ -156,7 +248,7 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
                 status: "Assigned"
             });
 
-            setAssignments((previous) => {
+            setAssignments(previous => {
                 const updated = { ...previous };
                 delete updated[requestId];
                 return updated;
@@ -192,6 +284,7 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
 
     return (
         <div className="requests-section">
+
             <h2>
                 {pendingOnly
                     ? "Pending Maintenance Requests"
@@ -200,6 +293,7 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
 
             {!pendingOnly && (
                 <>
+                    {/* Search */}
                     <form className="search-form" onSubmit={handleSearch}>
                         <input
                             type="text"
@@ -208,14 +302,18 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
                             onChange={(e) => setSearch(e.target.value)}
                         />
 
-                        <button type="submit">Search</button>
+                        <button type="submit">
+                            Search
+                        </button>
 
                         <button type="button" onClick={handleClear}>
                             Clear
                         </button>
                     </form>
 
+                    {/* Unified filters */}
                     <div className="filters-container">
+
                         <div className="filter-group">
                             <label>Service Type</label>
                             <select
@@ -274,8 +372,8 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
                             <input
                                 type="number"
                                 name="minCost"
-                                placeholder="Min cost"
                                 min="0"
+                                placeholder="Minimum cost"
                                 value={filters.minCost}
                                 onChange={handleFilterChange}
                             />
@@ -286,9 +384,78 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
                             <input
                                 type="number"
                                 name="maxCost"
-                                placeholder="Max cost"
                                 min="0"
+                                placeholder="Maximum cost"
                                 value={filters.maxCost}
+                                onChange={handleFilterChange}
+                            />
+                        </div>
+
+                        <div className="filter-group">
+                            <label>Cost Above</label>
+                            <input
+                                type="number"
+                                name="aboveCost"
+                                min="0"
+                                placeholder="Enter amount"
+                                value={filters.aboveCost}
+                                onChange={handleFilterChange}
+                            />
+                        </div>
+
+                        <div className="filter-group">
+                            <label>Cost Below</label>
+                            <input
+                                type="number"
+                                name="belowCost"
+                                min="0"
+                                placeholder="Enter amount"
+                                value={filters.belowCost}
+                                onChange={handleFilterChange}
+                            />
+                        </div>
+
+                        <div className="filter-group">
+                            <label>Exclude Status</label>
+                            <select
+                                name="excludeStatus"
+                                value={filters.excludeStatus}
+                                onChange={handleFilterChange}
+                            >
+                                <option value="">None</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Assigned">Assigned</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+
+                        <div className="filter-group">
+                            <label>Previous Status</label>
+                            <select
+                                name="historyStatus"
+                                value={filters.historyStatus}
+                                onChange={handleFilterChange}
+                            >
+                                <option value="">Any Previous Status</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Assigned">Assigned</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
+                        </div>
+
+                        <div className="filter-group">
+                            <label>Maximum Results</label>
+                            <input
+                                type="number"
+                                name="limit"
+                                min="1"
+                                max="100"
+                                placeholder="No limit"
+                                value={filters.limit}
                                 onChange={handleFilterChange}
                             />
                         </div>
@@ -300,9 +467,9 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
                                 value={filters.sortBy}
                                 onChange={handleFilterChange}
                             >
-                                <option value="createdAt">Request Date</option>
                                 <option value="estimatedCost">Estimated Cost</option>
                                 <option value="requestDate">Date Requested</option>
+                                <option value="updateCount">Update Count</option>
                             </select>
                         </div>
 
@@ -317,20 +484,28 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
                                 <option value="asc">Ascending</option>
                             </select>
                         </div>
+
                     </div>
 
                     <div className="filter-actions">
-                        <button type="button" onClick={handleApplyFilters}>
+                        <button
+                            type="button"
+                            onClick={handleApplyFilters}
+                        >
                             Apply Filters
                         </button>
 
-                        <button type="button" onClick={handleResetFilters}>
+                        <button
+                            type="button"
+                            onClick={handleResetFilters}
+                        >
                             Reset Filters
                         </button>
                     </div>
                 </>
             )}
 
+            {/* Loading and error messages */}
             {loading ? (
                 <p>Loading requests...</p>
             ) : error ? (
@@ -342,138 +517,188 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
                         : "No matching maintenance requests found."}
                 </p>
             ) : (
-                <div className="table-wrapper">
-                    <table className="requests-table">
-                        <thead>
-                            <tr>
-                                <th>Request ID</th>
-                                <th>Customer</th>
-                                <th>Service</th>
-                                <th>Request Date</th>
-                                <th>Technician</th>
-                                <th>Estimated Cost</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
+                <>
+                    {/* Bulk delete action */}
+                    {!pendingOnly && (
+                        <div className="bulk-actions">
+                            <button
+                                type="button"
+                                className="bulk-delete-btn"
+                                onClick={handleBulkDelete}
+                                disabled={selectedIds.length === 0}
+                            >
+                                <span aria-hidden="true">🗑</span>
+                                Delete Selected ({selectedIds.length})
+                            </button>
+                        </div>
+                    )}
 
-                        <tbody>
-                            {requests.map((request) => (
-                                <tr key={request._id}>
-                                    <td>
-                                        <button
-                                            className="request-id-btn"
-                                            onClick={() => handleViewDetails(request)}
-                                        >
-                                            {request.requestId}
-                                        </button>
-                                    </td>
+                    {/* Requests table */}
+                    <div className="table-wrapper">
+                        <table className="requests-table">
 
-                                    <td>{request.customerName}</td>
-                                    <td>{request.serviceType}</td>
-
-                                    <td>
-                                        {new Date(
-                                            request.requestDate
-                                        ).toLocaleDateString()}
-                                    </td>
-
-                                    <td>
-                                        {pendingOnly ? (
+                            <thead>
+                                <tr>
+                                    {!pendingOnly && (
+                                        <th>
                                             <input
-                                                type="text"
-                                                placeholder="Technician name"
-                                                value={
-                                                    assignments[request.requestId]?.technician || ""
-                                                }
-                                                onChange={(e) =>
-                                                    handleAssignmentChange(
-                                                        request.requestId,
-                                                        "technician",
-                                                        e.target.value
+                                                type="checkbox"
+                                                checked={
+                                                    requests.length > 0 &&
+                                                    requests.every(request =>
+                                                        selectedIds.includes(request.requestId)
                                                     )
                                                 }
+                                                onChange={handleSelectAll}
+                                                aria-label="Select all requests"
                                             />
-                                        ) : (
-                                            request.technician || "Not assigned"
-                                        )}
-                                    </td>
+                                        </th>
+                                    )}
 
-                                    <td>
-                                        {pendingOnly ? (
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                placeholder="Estimated cost"
-                                                value={
-                                                    assignments[request.requestId]?.estimatedCost ?? ""
-                                                }
-                                                onChange={(e) =>
-                                                    handleAssignmentChange(
-                                                        request.requestId,
-                                                        "estimatedCost",
-                                                        e.target.value
-                                                    )
-                                                }
-                                            />
-                                        ) : (
-                                            request.estimatedCost ?? "Not set"
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        {request.status === "Pending" ? (
-                                            <span>Pending</span>
-                                        ) : (
-                                            <select
-                                                value={request.status}
-                                                onChange={(e) =>
-                                                    handleStatusUpdate(
-                                                        request.requestId,
-                                                        e.target.value
-                                                    )
-                                                }
-                                            >
-                                                <option value="Assigned">Assigned</option>
-                                                <option value="In Progress">In Progress</option>
-                                                <option value="Completed">Completed</option>
-                                                <option value="Cancelled">Cancelled</option>
-                                            </select>
-                                        )}
-                                    </td>
-
-                                    <td>
-                                        {pendingOnly && (
-                                            <button
-                                                className="pending-assign-btn"
-                                                onClick={() =>
-                                                    handleAssign(request.requestId)
-                                                }
-                                            >
-                                                Assign
-                                            </button>
-                                        )}
-
-                                        <button
-                                            className="delete-btn"
-                                            onClick={() =>
-                                                handleDeleteClick(request.requestId)
-                                            }
-                                        >
-                                            Delete
-                                        </button>
-                                    </td>
+                                    <th>Request ID</th>
+                                    <th>Customer</th>
+                                    <th>Service</th>
+                                    <th>Request Date</th>
+                                    <th>Technician</th>
+                                    <th>Estimated Cost</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+
+                            <tbody>
+                                {requests.map(request => (
+                                    <tr key={request._id}>
+
+                                        {!pendingOnly && (
+                                            <td>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedIds.includes(request.requestId)}
+                                                    onChange={() =>
+                                                        handleSelectRequest(request.requestId)
+                                                    }
+                                                    aria-label={`Select ${request.requestId}`}
+                                                />
+                                            </td>
+                                        )}
+
+                                        <td>
+                                            <button
+                                                className="request-id-btn"
+                                                onClick={() => handleViewDetails(request)}
+                                            >
+                                                {request.requestId}
+                                            </button>
+                                        </td>
+
+                                        <td>{request.customerName}</td>
+                                        <td>{request.serviceType}</td>
+
+                                        <td>
+                                            {request.requestDate
+                                                ? new Date(request.requestDate).toLocaleDateString()
+                                                : "Not available"}
+                                        </td>
+
+                                        <td>
+                                            {pendingOnly ? (
+                                                <input
+                                                    type="text"
+                                                    placeholder="Technician name"
+                                                    value={
+                                                        assignments[request.requestId]?.technician || ""
+                                                    }
+                                                    onChange={(e) =>
+                                                        handleAssignmentChange(
+                                                            request.requestId,
+                                                            "technician",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            ) : (
+                                                request.technician || "Not assigned"
+                                            )}
+                                        </td>
+
+                                        <td>
+                                            {pendingOnly ? (
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    placeholder="Estimated cost"
+                                                    value={
+                                                        assignments[request.requestId]?.estimatedCost ?? ""
+                                                    }
+                                                    onChange={(e) =>
+                                                        handleAssignmentChange(
+                                                            request.requestId,
+                                                            "estimatedCost",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            ) : (
+                                                request.estimatedCost ?? "Not set"
+                                            )}
+                                        </td>
+
+                                        <td>
+                                            {request.status === "Pending" ? (
+                                                <span>Pending</span>
+                                            ) : (
+                                                <select
+                                                    value={request.status}
+                                                    onChange={(e) =>
+                                                        handleStatusUpdate(
+                                                            request.requestId,
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                >
+                                                    <option value="Assigned">Assigned</option>
+                                                    <option value="In Progress">In Progress</option>
+                                                    <option value="Completed">Completed</option>
+                                                    <option value="Cancelled">Cancelled</option>
+                                                </select>
+                                            )}
+                                        </td>
+
+                                        <td>
+                                            {pendingOnly && (
+                                                <button
+                                                    className="pending-assign-btn"
+                                                    onClick={() => handleAssign(request.requestId)}
+                                                >
+                                                    Assign
+                                                </button>
+                                            )}
+
+                                            <button
+                                                className="delete-btn"
+                                                onClick={() =>
+                                                    handleDeleteClick(request.requestId)
+                                                }
+                                            >
+                                                Delete
+                                            </button>
+                                        </td>
+
+                                    </tr>
+                                ))}
+                            </tbody>
+
+                        </table>
+                    </div>
+                </>
             )}
 
-            {/* Custom Delete Confirmation Modal */}
+            {/* Individual delete confirmation modal */}
             {showDeleteModal && (
                 <div className="modal-overlay">
                     <div className="delete-modal">
+
                         <div className="modal-icon">!</div>
 
                         <h2>Delete Request?</h2>
@@ -499,14 +724,16 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
                                 Delete Request
                             </button>
                         </div>
+
                     </div>
                 </div>
             )}
 
-            {/* Request Details Modal */}
+            {/* Request details modal */}
             {selectedRequest && (
                 <div className="modal-overlay">
                     <div className="details-modal">
+
                         <div className="details-header">
                             <h2>Request Details</h2>
 
@@ -519,6 +746,7 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
                         </div>
 
                         <div className="details-content">
+
                             <p>
                                 <strong>Request ID:</strong>{" "}
                                 {selectedRequest.requestId}
@@ -549,17 +777,15 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
 
                             <p>
                                 <strong>Request Date:</strong>{" "}
-                                {new Date(
-                                    selectedRequest.requestDate
-                                ).toLocaleDateString()}
+                                {selectedRequest.requestDate
+                                    ? new Date(selectedRequest.requestDate).toLocaleDateString()
+                                    : "Not available"}
                             </p>
 
                             <p>
                                 <strong>Preferred Date:</strong>{" "}
                                 {selectedRequest.preferredDate
-                                    ? new Date(
-                                        selectedRequest.preferredDate
-                                    ).toLocaleDateString()
+                                    ? new Date(selectedRequest.preferredDate).toLocaleDateString()
                                     : "Not specified"}
                             </p>
 
@@ -577,10 +803,12 @@ function RequestTable({ pendingOnly = false, onDataChange }) {
                                 <strong>Status:</strong>{" "}
                                 {selectedRequest.status}
                             </p>
+
                         </div>
                     </div>
                 </div>
             )}
+
         </div>
     );
 }

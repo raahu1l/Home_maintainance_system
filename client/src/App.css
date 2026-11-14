@@ -736,3 +736,47 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
+
+
+/* Bulk delete button */
+.bulk-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin: 18px 0 12px;
+}
+
+.bulk-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 17px;
+    border: none;
+    border-radius: 6px;
+    background: #dc3545;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.bulk-delete-btn:hover:not(:disabled) {
+    background: #b02a37;
+}
+
+.bulk-delete-btn:disabled {
+    background: #e5a4aa;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Unified filters spacing */
+.filters-container {
+    margin-top: 16px;
+}
+
+.filter-actions {
+    margin-top: 16px;
+}
