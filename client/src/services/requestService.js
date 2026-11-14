@@ -67,3 +67,41 @@ export const getAllRequests = async (filters = {}) => {
 
     return data;
 };
+
+export const deleteRequest = async (requestId) => {
+    const response = await fetch(
+        `${API_URL}/${encodeURIComponent(requestId)}`,
+        {
+            method: "DELETE"
+        }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.message || "Failed to delete request");
+    }
+
+    return data;
+};
+
+export const updateRequest = async (requestId, updateData) => {
+    const response = await fetch(
+        `${API_URL}/${encodeURIComponent(requestId)}`,
+        {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(updateData)
+        }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.message || "Failed to update request");
+    }
+
+    return data;
+};

@@ -23,7 +23,7 @@ router.get("/stats", getRequestStats);
 router.get("/:requestId", getRequestById);
 
 // Update request
-router.put("/:requestId", updateRequest);
+router.patch("/:requestId", updateRequest);
 
 
 // Delete request
