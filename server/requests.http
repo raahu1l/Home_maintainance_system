@@ -16,3 +16,23 @@ GET http://localhost:5000/api/requests
 
 ### Get Request by ID
 GET http://localhost:5000/api/requests/MR002
+
+### Update Maintenance Request
+PUT http://localhost:5000/api/requests/MR001
+Content-Type: application/json
+
+{
+    "technician": "Amit",
+    "estimatedCost": 1500,
+    "status": "Assigned",
+    "note": "Technician assigned to the request"
+}
+
+### Delete Maintenance Request
+DELETE http://localhost:5000/api/requests/MR001
+
+### Invalid Date Range
+GET http://localhost:5000/api/requests?startDate=2026-11-14&endDate=2026-11-10
+
+### Invalid Cost Range
+GET http://localhost:5000/api/requests?minCost=2000&maxCost=500

@@ -1,9 +1,8 @@
-
 const MaintenanceRequest = require("../models/MaintenanceRequest");
 
 const generateRequestId = async () => {
     const lastRequest = await MaintenanceRequest.findOne()
-        .sort({ createdAt: -1 })
+        .sort({ requestId: -1 })
         .select("requestId");
 
     if (!lastRequest) {
